@@ -1,19 +1,21 @@
 import json
-from re import S
 import mysql.connector
 from mysql.connector import errorcode
 import tmdbsimple as tmdb
+from datetime import datetime
 
 
 IMG_URL = 'https://image.tmdb.org/t/p/original'
-tmdb.API_KEY = 'YOUR TMDB KEY'
+OUTPUT_FILE = 'output.txt'
+tmdb.API_KEY = '7ade87f75c757f82c658d23699f364a6'
 tmdb.REQUESTS_TIMEOUT = 5
 
 
 def search_tmdb():
-    name_lst = db_movie_name()
+    name_lst = db_movie_name(datetime.strftime(datetime.now(), '%Y-%m-%d'))
     search = tmdb.Search()
     result_dict = {}
+    res = {}
     for item in name_lst:
         id, name, remarks, pic = item[0], item[1], item[2], item[3]
         result_dict[id] = {}
@@ -21,8 +23,11 @@ def search_tmdb():
             res = search.movie(language='vi-VN', query=name, include_adult=True)
         elif 'tập' in remarks.lower():
             res = search.tv(language='vi-VN', query=name, include_adult=True)
-        result = search.results if len(search.results) == 0 else search.results[0]
-        if result:
+        else:
+            continue
+        results = res['results']
+        if results:
+            result = results[0]
             print(result)
             backdrop_path = result['backdrop_path']
             result_dict[id]['name'] = name
@@ -58,10 +63,10 @@ def executemany(cursor, sql: str, params=None):
         print(f'UPDATE ERROR: {e}')
 
 
-def db_movie_name():
+def db_movie_name(date):
     conn = connet()
     cursor = conn.cursor()
-    sql = 'SELECT vod_id, vod_name, vod_remarks, vod_pic FROM mac_vod'
+    sql = f'SELECT vod_id, vod_name, vod_remarks, vod_pic FROM mac_vod WHERE from_unixtime(vod_time, "%Y-%m-%d") = "{date}"'
     cursor.execute(sql)
     result = cursor.fetchall()
     cursor.close()
@@ -70,9 +75,10 @@ def db_movie_name():
 
 
 def update():
+    now = datetime.strftime(datetime.now(), '%Y%m%d')
     json_file = None
     data = []
-    with open('output.txt', 'r') as f:
+    with open(f'{now}_{OUTPUT_FILE}', 'r') as f:
         json_file = json.load(f)
     for key, value in json_file.items():
         if value:
@@ -86,6 +92,7 @@ def update():
 
 if __name__ == '__main__':
     json_str = search_tmdb()
-    with open('output.txt', 'w', encoding='UTF-8') as f:
+    now = datetime.strftime(datetime.now(), '%Y%m%d')
+    with open(f'{now}_{OUTPUT_FILE}', 'w') as f:
         f.write(json_str)
     update()
